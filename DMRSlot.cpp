@@ -136,6 +136,9 @@ CDMRSlot::~CDMRSlot()
 
 bool CDMRSlot::writeModem(unsigned char *data, unsigned int len)
 {
+	unsigned int m_fill=0;
+	unsigned char m_dmrFrame[50U];
+
 	assert(data != NULL);
 
 	if (!m_enabled)
@@ -322,6 +325,44 @@ bool CDMRSlot::writeModem(unsigned char *data, unsigned int len)
 		} else if (dataType == DT_TERMINATOR_WITH_LC) {
 			if (m_rfState != RS_RF_AUDIO)
 				return false;
+
+		    	unsigned int time_blk_10 = int(float(m_rfFrames) / 1.6667F);
+			if (time_blk_10<21) {
+				m_fill=(((30-time_blk_10)/6)+1)*6; // 100ms por packet
+				LogMessage("Time %d, Inserting %d blocks of silence",time_blk_10,m_fill);
+
+				for (unsigned int i=0U; i<m_fill;i++) {
+					CDMRData rx_dmrdata;
+					unsigned int n_dmr = (m_rfFrames - 3U) % 6U;
+				//	LogMessage("Adding time: %d-%d",i,m_fill);
+
+					CDMREMB emb;
+					rx_dmrdata.setSlotNo(2U);
+					rx_dmrdata.setSrcId(2147531U);
+					rx_dmrdata.setDstId(21421U);
+					rx_dmrdata.setFLCO(FLCO_USER_USER);
+					rx_dmrdata.setN(n_dmr);
+					rx_dmrdata.setSeqNo(m_rfFrames);
+					rx_dmrdata.setBER(0U);
+					rx_dmrdata.setRSSI(0U);
+					rx_dmrdata.setDataType(DT_VOICE);
+
+					if (!n_dmr) {
+						rx_dmrdata.setDataType(DT_VOICE_SYNC);
+						// Add sync
+						CSync::addDMRAudioSync(m_dmrFrame, 0U);
+						// Prepare Full LC data
+						writeNetworkRF(m_dmrFrame, DT_VOICE_SYNC);
+					}
+					else {
+						rx_dmrdata.setDataType(DT_VOICE);
+						::memcpy(m_dmrFrame, DMR_SILENCE_DATA, DMR_FRAME_LENGTH_BYTES);
+						// Generate the Embedded LC
+						writeNetworkRF(m_dmrFrame, DT_VOICE);
+					}
+					m_rfFrames++;
+				}
+			}
 
 			// Regenerate the LC data
 			CDMRFullLC fullLC;
