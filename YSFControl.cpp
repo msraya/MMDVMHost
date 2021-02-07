@@ -956,6 +956,7 @@ void CYSFControl::writeNetwork()
 
 	bool gateway = ::memcmp(data + 4U, m_callsign, YSF_CALLSIGN_LENGTH) == 0;
 
+
 	unsigned char n = (data[34U] & 0xFEU) >> 1;
 	bool end = (data[34U] & 0x01U) == 0x01U;
 
@@ -986,6 +987,7 @@ void CYSFControl::writeNetwork()
 		if (m_netN == n)
 			return;
 	}
+	m_netPayload.setDownlink(std::string((char*)(data + 4U)));
 
 	data[33U] = end ? TAG_EOT : TAG_DATA;
 	data[34U] = 0x00U;
@@ -1228,7 +1230,7 @@ void CYSFControl::processNetCallsigns(const unsigned char* data)
 
 		if (::memcmp(m_netSource, "          ", 10U) != 0 && ::memcmp(m_netDest, "          ", 10U) != 0) {
 			m_display->writeFusion((char*)m_netSource, (char*)m_netDest, "N", (char*)(data + 4U));
-			LogMessage("YSF, received network data from %10.10s to %10.10s at %10.10s", m_netSource, m_netDest, data + 4U);
+			LogMessage("YSF After, received network data from %10.10s to %10.10s at %10.10s", m_netSource, m_netDest, data + 4U);
 		}
 	}
 }
